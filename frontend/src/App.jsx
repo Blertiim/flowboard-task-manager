@@ -21,6 +21,7 @@ const DEFAULT_TASK_FORM = {
   link: "",
   dueDate: "",
   priority: "important",
+  type: "task",
   columnId: "",
   createdAt: ""
 };
@@ -56,6 +57,7 @@ function normalizeTask(task) {
     link: normalizeInputValue(task.link),
     dueDate: task.dueDate || "",
     priority: normalizeInputValue(task.priority) || "important",
+    type: normalizeInputValue(task.type) || "task",
     columnId: String(task.columnId),
     position: typeof task.position === "number" ? task.position : 1024
   };
@@ -140,6 +142,7 @@ function buildTaskForm(task, fallbackColumnId = "") {
     link: normalizeInputValue(task.link),
     dueDate: task.dueDate || "",
     priority: normalizeInputValue(task.priority) || "important",
+    type: normalizeInputValue(task.type) || "task",
     columnId: String(task.columnId || fallbackColumnId),
     createdAt: task.createdAt || ""
   };
@@ -434,6 +437,7 @@ export default function App() {
         link: "",
         dueDate: "",
         priority: "important",
+        type: "task",
         columnId
       })
     );

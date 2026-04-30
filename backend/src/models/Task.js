@@ -27,6 +27,11 @@ const taskSchema = new mongoose.Schema(
       enum: ["critical", "important", "not-important"],
       default: "important"
     },
+    type: {
+      type: String,
+      enum: ["task", "bug", "feature"],
+      default: "task"
+    },
     columnId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Column",

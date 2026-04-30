@@ -10,6 +10,7 @@ function normalizeTaskInput(payload = {}) {
     link: typeof payload.link === "string" ? payload.link.trim() : "",
     dueDate: payload.dueDate ? new Date(payload.dueDate) : null,
     priority: typeof payload.priority === "string" ? payload.priority.trim() : "",
+    type: typeof payload.type === "string" ? payload.type.trim() : "",
     columnId: typeof payload.columnId === "string" ? payload.columnId.trim() : ""
   };
 }
@@ -43,6 +44,10 @@ function validatePriority(priority) {
   return ["critical", "important", "not-important"].includes(priority);
 }
 
+function validateTaskType(type) {
+  return ["task", "bug", "feature"].includes(type);
+}
+
 async function getColumnOrNull(columnId) {
   if (!validateColumnId(columnId)) {
     return null;
@@ -74,6 +79,10 @@ async function createTask(request, response, next) {
 
     if (!validatePriority(taskData.priority)) {
       return response.status(400).json({ message: "Task priority is invalid." });
+    }
+
+    if (!validateTaskType(taskData.type)) {
+      return response.status(400).json({ message: "Task type is invalid." });
     }
 
     if (!validateUrl(taskData.link)) {
@@ -127,6 +136,10 @@ async function updateTask(request, response, next) {
       return response.status(400).json({ message: "Task priority is invalid." });
     }
 
+    if (!validateTaskType(updates.type)) {
+      return response.status(400).json({ message: "Task type is invalid." });
+    }
+
     if (!validateUrl(updates.link)) {
       return response.status(400).json({ message: "Link must be a valid http or https URL." });
     }
@@ -149,6 +162,7 @@ async function updateTask(request, response, next) {
     existingTask.link = updates.link || "";
     existingTask.dueDate = updates.dueDate;
     existingTask.priority = updates.priority;
+    existingTask.type = updates.type;
     existingTask.columnId = nextColumnId;
     existingTask.status = "";
 

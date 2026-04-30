@@ -1,4 +1,5 @@
 import { getPriorityStyle, PRIORITY_OPTIONS } from "../lib/priorityStyles";
+import { getTaskTypeStyle, TASK_TYPE_OPTIONS } from "../lib/taskTypeStyles";
 
 function toDateTimeLocalValue(dateValue) {
   if (!dateValue) {
@@ -73,6 +74,17 @@ function IconDescription() {
   );
 }
 
+function IconType() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M3 4.25h10" />
+      <path d="M5.5 4.25V11.75" />
+      <path d="M10.5 4.25V11.75" />
+      <path d="M3 11.75h10" />
+    </svg>
+  );
+}
+
 export default function TaskModal({
   columns,
   form,
@@ -90,6 +102,7 @@ export default function TaskModal({
 
   const titleError = !form.title.trim() ? "A summary is required." : "";
   const selectedPriority = getPriorityStyle(form.priority);
+  const selectedType = getTaskTypeStyle(form.type);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/24 p-4 backdrop-blur-[1px] sm:items-center">
@@ -212,6 +225,28 @@ export default function TaskModal({
                       <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-current">
                         {selectedPriority.icon}
                       </span>
+                      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                        <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="m4.5 6 3.5 4 3.5-4" />
+                        </svg>
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="grid gap-2">
+                    <FieldLabel icon={<IconType />}>Type</FieldLabel>
+                    <div className="relative">
+                      <select
+                        value={form.type}
+                        onChange={(event) => onChange("type", event.target.value)}
+                        className={`w-full appearance-none rounded-md border border-slate-300 bg-white px-3 py-2.5 pr-10 text-sm font-medium text-slate-800 outline-none transition focus:border-[#0C66E4] focus:ring-2 focus:ring-[#85B8FF] ${selectedType.badgeClass}`}
+                      >
+                        {TASK_TYPE_OPTIONS.map((item) => (
+                          <option key={item.value} value={item.value}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
                       <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
                         <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
                           <path d="m4.5 6 3.5 4 3.5-4" />
