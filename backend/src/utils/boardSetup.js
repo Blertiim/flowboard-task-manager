@@ -26,121 +26,27 @@ const DEFAULT_COLUMNS = [
   }
 ];
 
-async function migrateDefaultColumnMetadata(columns) {
-  const defaultBySystemKey = Object.fromEntries(
-    DEFAULT_COLUMNS.map((column) => [column.systemKey, column])
-  );
-  const unmatchedDefaults = new Map(DEFAULT_COLUMNS.map((column) => [column.title, column]));
-  const operations = [];
+async function ensureUserDefaultColumns(ownerId) {
+  const ownerKey = String(ownerId);
+  const existingColumns = await Column.find({ ownerId: ownerKey }).sort({ position: 1, createdAt: 1 });
+  const existingSystemKeys = new Set(existingColumns.map((column) => column.systemKey).filter(Boolean));
+  const missingDefaults = DEFAULT_COLUMNS.filter((column) => !existingSystemKeys.has(column.systemKey));
 
-  columns.forEach((column) => {
-    if (column.systemKey && defaultBySystemKey[column.systemKey]) {
-      unmatchedDefaults.delete(defaultBySystemKey[column.systemKey].title);
-
-      if (!column.isDefault) {
-        operations.push({
-          updateOne: {
-            filter: { _id: column._id },
-            update: { isDefault: true }
-          }
-        });
-      }
-
-      return;
-    }
-
-    const matchedDefault = unmatchedDefaults.get(column.title);
-
-    if (matchedDefault) {
-      operations.push({
-        updateOne: {
-          filter: { _id: column._id },
-          update: {
-            isDefault: true,
-            systemKey: matchedDefault.systemKey
-          }
-        }
-      });
-      unmatchedDefaults.delete(column.title);
-    }
-  });
-
-  if (operations.length > 0) {
-    await Column.bulkWrite(operations);
-  }
-}
-
-async function ensureDefaultColumns() {
-  const existingColumns = await Column.find({}).sort({ position: 1, createdAt: 1 });
-
-  if (existingColumns.length > 0) {
-    await migrateDefaultColumnMetadata(existingColumns);
-
-    const refreshedColumns = await Column.find({}).sort({ position: 1, createdAt: 1 });
-    const existingSystemKeys = new Set(
-      refreshedColumns.map((column) => column.systemKey).filter(Boolean)
-    );
-    const missingDefaults = DEFAULT_COLUMNS.filter(
-      (column) => !existingSystemKeys.has(column.systemKey)
-    );
-
-    if (missingDefaults.length === 0) {
-      return refreshedColumns;
-    }
-
-    const lastPosition = refreshedColumns[refreshedColumns.length - 1]?.position || 0;
-
-    await Column.insertMany(
-      missingDefaults.map((column, index) => ({
-        ...column,
-        position: lastPosition + POSITION_GAP * (index + 1)
-      }))
-    );
-
-    return Column.find({}).sort({ position: 1, createdAt: 1 });
+  if (missingDefaults.length === 0) {
+    return existingColumns;
   }
 
-  const columns = await Column.insertMany(
-    DEFAULT_COLUMNS.map((column, index) => ({
+  const lastPosition = existingColumns[existingColumns.length - 1]?.position || 0;
+
+  await Column.insertMany(
+    missingDefaults.map((column, index) => ({
       ...column,
-      position: (index + 1) * POSITION_GAP
+      ownerId: ownerKey,
+      position: lastPosition + POSITION_GAP * (index + 1)
     }))
   );
 
-  return columns;
-}
-
-async function migrateLegacyTasks(columns) {
-  const legacyTasks = await Task.find({
-    $or: [{ columnId: { $exists: false } }, { columnId: null }]
-  });
-
-  if (legacyTasks.length === 0) {
-    return;
-  }
-
-  const defaultColumnMap = {
-    todo: columns.find((column) => column.title === "Todo"),
-    "in-progress": columns.find((column) => column.title === "In Progress"),
-    done: columns.find((column) => column.title === "Done")
-  };
-  const fallbackColumn = columns[0];
-
-  if (!fallbackColumn) {
-    return;
-  }
-
-  await Task.bulkWrite(
-    legacyTasks.map((task) => ({
-      updateOne: {
-        filter: { _id: task._id },
-        update: {
-          columnId: defaultColumnMap[task.status]?._id || fallbackColumn._id,
-          priority: task.priority || "important"
-        }
-      }
-    }))
-  );
+  return Column.find({ ownerId: ownerKey }).sort({ position: 1, createdAt: 1 });
 }
 
 async function migrateTaskPriority() {
@@ -154,14 +60,29 @@ async function migrateTaskPriority() {
   );
 }
 
+async function migrateTaskType() {
+  await Task.updateMany(
+    {
+      $or: [{ type: { $exists: false } }, { type: null }, { type: "" }]
+    },
+    {
+      $set: { type: "task" }
+    }
+  );
+}
+
 async function ensureBoardSetup() {
-  const columns = await ensureDefaultColumns();
-  await migrateLegacyTasks(columns);
   await migrateTaskPriority();
+  await migrateTaskType();
+}
+
+async function ensureUserBoardSetup(ownerId) {
+  await ensureBoardSetup();
+  return ensureUserDefaultColumns(ownerId);
 }
 
 module.exports = {
   DEFAULT_COLUMNS,
   ensureBoardSetup,
-  ensureDefaultColumns
+  ensureUserBoardSetup
 };

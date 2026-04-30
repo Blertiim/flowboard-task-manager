@@ -1,8 +1,10 @@
 export default function HeaderBar({
   darkMode,
   dueReminderEnabled,
+  currentUser,
   onPriorityFilterChange,
   onSearchChange,
+  onSignOut,
   onToggleDarkMode,
   onToggleDueReminders,
   priorityFilter,
@@ -27,6 +29,11 @@ export default function HeaderBar({
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
             Move cards visually across lists, add new ones inline, and keep details one click away.
           </p>
+          {currentUser ? (
+            <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+              Signed in as {currentUser.name} ({currentUser.email})
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -76,6 +83,14 @@ export default function HeaderBar({
             className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:text-white"
           >
             {dueReminderEnabled ? "Reminders on" : "Reminders"}
+          </button>
+
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="rounded-2xl border border-rose-200 bg-white px-4 py-3 text-sm font-semibold text-rose-700 transition hover:border-rose-400 hover:bg-rose-50 dark:border-rose-900 dark:bg-slate-950 dark:text-rose-300 dark:hover:bg-rose-950/20"
+          >
+            Logout
           </button>
         </div>
       </div>

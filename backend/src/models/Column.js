@@ -32,6 +32,12 @@ const columnSchema = new mongoose.Schema(
       type: Number,
       required: true,
       default: 1024
+    },
+    ownerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true
     }
   },
   {

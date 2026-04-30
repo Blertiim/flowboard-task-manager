@@ -56,9 +56,17 @@ async function getColumnOrNull(columnId) {
   return Column.findById(columnId);
 }
 
-async function listTasks(_request, response, next) {
+async function getOwnedColumnOrNull(columnId, ownerId) {
+  if (!validateColumnId(columnId)) {
+    return null;
+  }
+
+  return Column.findOne({ _id: columnId, ownerId });
+}
+
+async function listTasks(request, response, next) {
   try {
-    const tasks = await Task.find({}).sort({ position: 1, createdAt: 1 });
+    const tasks = await Task.find({ ownerId: request.user._id }).sort({ position: 1, createdAt: 1 });
     response.json(tasks);
   } catch (error) {
     next(error);
@@ -93,7 +101,7 @@ async function createTask(request, response, next) {
       return response.status(400).json({ message: "Due date must be a valid date/time." });
     }
 
-    const column = await getColumnOrNull(taskData.columnId);
+    const column = await getOwnedColumnOrNull(taskData.columnId, request.user._id);
 
     if (!column) {
       return response.status(400).json({ message: "Task column was not found." });
@@ -104,7 +112,8 @@ async function createTask(request, response, next) {
       link: taskData.link || "",
       description: taskData.description || "",
       status: "",
-      position: await getTopPosition(taskData.columnId)
+      position: await getTopPosition(taskData.columnId, request.user._id),
+      ownerId: request.user._id
     });
 
     response.status(201).json(task);
@@ -116,7 +125,7 @@ async function createTask(request, response, next) {
 async function updateTask(request, response, next) {
   try {
     const { id } = request.params;
-    const existingTask = await Task.findById(id);
+    const existingTask = await Task.findOne({ _id: id, ownerId: request.user._id });
 
     if (!existingTask) {
       return response.status(404).json({ message: "Task not found." });
@@ -148,7 +157,7 @@ async function updateTask(request, response, next) {
       return response.status(400).json({ message: "Due date must be a valid date/time." });
     }
 
-    const column = await getColumnOrNull(updates.columnId);
+    const column = await getOwnedColumnOrNull(updates.columnId, request.user._id);
 
     if (!column) {
       return response.status(400).json({ message: "Task column was not found." });
@@ -167,7 +176,7 @@ async function updateTask(request, response, next) {
     existingTask.status = "";
 
     if (columnChanged) {
-      existingTask.position = await getTopPosition(nextColumnId);
+      existingTask.position = await getTopPosition(nextColumnId, request.user._id);
     }
 
     await existingTask.save();
@@ -182,7 +191,7 @@ async function moveTask(request, response, next) {
     const { id } = request.params;
     const { destinationColumnId, destinationIndex } = request.body;
 
-    const task = await Task.findById(id);
+    const task = await Task.findOne({ _id: id, ownerId: request.user._id });
 
     if (!task) {
       return response.status(404).json({ message: "Task not found." });
@@ -192,13 +201,16 @@ async function moveTask(request, response, next) {
       return response.status(400).json({ message: "Destination column is invalid." });
     }
 
-    const column = await getColumnOrNull(destinationColumnId);
+    const column = await getOwnedColumnOrNull(destinationColumnId, request.user._id);
 
     if (!column) {
       return response.status(400).json({ message: "Destination column was not found." });
     }
 
-    const targetTasks = await Task.find({ columnId: destinationColumnId }).sort({ position: 1, createdAt: 1 });
+    const targetTasks = await Task.find({
+      columnId: destinationColumnId,
+      ownerId: request.user._id
+    }).sort({ position: 1, createdAt: 1 });
     const tasksWithoutCurrent = targetTasks.filter((columnTask) => String(columnTask._id) !== id);
     const targetIndex = Number.isInteger(destinationIndex)
       ? destinationIndex
@@ -206,7 +218,8 @@ async function moveTask(request, response, next) {
     const nextPosition = await ensurePositionGap(
       destinationColumnId,
       Math.max(0, Math.min(targetIndex, tasksWithoutCurrent.length)),
-      id
+      id,
+      request.user._id
     );
 
     task.columnId = destinationColumnId;
@@ -223,7 +236,7 @@ async function moveTask(request, response, next) {
 async function deleteTask(request, response, next) {
   try {
     const { id } = request.params;
-    const deletedTask = await Task.findByIdAndDelete(id);
+    const deletedTask = await Task.findOneAndDelete({ _id: id, ownerId: request.user._id });
 
     if (!deletedTask) {
       return response.status(404).json({ message: "Task not found." });

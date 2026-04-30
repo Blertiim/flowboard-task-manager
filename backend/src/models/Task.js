@@ -37,6 +37,12 @@ const taskSchema = new mongoose.Schema(
       ref: "Column",
       default: null
     },
+    ownerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true
+    },
     status: {
       type: String,
       trim: true,

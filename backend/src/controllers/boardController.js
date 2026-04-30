@@ -9,6 +9,7 @@ function serializeTask(task) {
     _id: taskId,
     title: task.title,
     description: task.description || "",
+    type: task.type || "task",
     priority: task.priority || "important",
     link: task.link || "",
     dueDate: task.dueDate,
@@ -37,11 +38,11 @@ function serializeColumn(column, tasks) {
   };
 }
 
-async function getBoard(_request, response, next) {
+async function getBoard(request, response, next) {
   try {
     const [columns, tasks] = await Promise.all([
-      Column.find({}).sort({ position: 1, createdAt: 1 }),
-      Task.find({}).sort({ position: 1, createdAt: 1 })
+      Column.find({ ownerId: request.user._id }).sort({ position: 1, createdAt: 1 }),
+      Task.find({ ownerId: request.user._id }).sort({ position: 1, createdAt: 1 })
     ]);
 
     const groupedTasks = tasks.reduce((accumulator, task) => {

@@ -1,16 +1,23 @@
 import { useEffect, useState } from "react";
 import { DragDropContext } from "@hello-pangea/dnd";
 import AddColumnCard from "./components/AddColumnCard";
+import AuthScreen from "./components/AuthScreen";
 import BoardColumn from "./components/BoardColumn";
 import HeaderBar from "./components/HeaderBar";
 import TaskModal from "./components/TaskModal";
 import {
+  clearAuthToken,
   createColumn,
   createTask,
   deleteColumn,
   deleteTask,
   fetchBoard,
+  fetchCurrentUser,
+  hasAuthToken,
+  loginUser,
   moveTask,
+  registerUser,
+  saveAuthToken,
   updateColumn,
   updateTask
 } from "./lib/api";
@@ -59,7 +66,9 @@ function normalizeTask(task) {
     priority: normalizeInputValue(task.priority) || "important",
     type: normalizeInputValue(task.type) || "task",
     columnId: String(task.columnId),
-    position: typeof task.position === "number" ? task.position : 1024
+    position: typeof task.position === "number" ? task.position : 1024,
+    createdAt: task.createdAt || "",
+    updatedAt: task.updatedAt || ""
   };
 }
 
@@ -203,7 +212,10 @@ function writeReminderCache(cache) {
 export default function App() {
   const [columns, setColumns] = useState([]);
   const [taskGroups, setTaskGroups] = useState({});
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
   const [isSavingTask, setIsSavingTask] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [searchValue, setSearchValue] = useState("");
@@ -231,7 +243,55 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
 
+    async function restoreSession() {
+      if (!hasAuthToken()) {
+        if (!cancelled) {
+          setCurrentUser(null);
+          setIsAuthLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const { user } = await fetchCurrentUser();
+
+        if (!cancelled) {
+          setCurrentUser(user);
+          setErrorMessage("");
+        }
+      } catch (_error) {
+        clearAuthToken();
+
+        if (!cancelled) {
+          setCurrentUser(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsAuthLoading(false);
+        }
+      }
+    }
+
+    restoreSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
     async function loadBoard() {
+      if (!currentUser) {
+        if (!cancelled) {
+          setColumns([]);
+          setTaskGroups({});
+          setIsLoading(false);
+        }
+        return;
+      }
+
       try {
         setIsLoading(true);
         setErrorMessage("");
@@ -259,7 +319,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     if (!dueReminderEnabled || typeof Notification === "undefined") {
@@ -346,6 +406,44 @@ export default function App() {
       ...currentForm,
       [field]: value
     }));
+  }
+
+  async function handleLogin(payload) {
+    try {
+      setIsAuthSubmitting(true);
+      setErrorMessage("");
+      const response = await loginUser(payload);
+      saveAuthToken(response.token);
+      setCurrentUser(response.user);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsAuthSubmitting(false);
+    }
+  }
+
+  async function handleRegister(payload) {
+    try {
+      setIsAuthSubmitting(true);
+      setErrorMessage("");
+      const response = await registerUser(payload);
+      saveAuthToken(response.token);
+      setCurrentUser(response.user);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsAuthSubmitting(false);
+    }
+  }
+
+  function handleSignOut() {
+    clearAuthToken();
+    setCurrentUser(null);
+    setColumns([]);
+    setTaskGroups({});
+    setEditingTask(null);
+    setIsTaskModalOpen(false);
+    setErrorMessage("");
   }
 
   async function handleTaskSubmit() {
@@ -506,15 +604,38 @@ export default function App() {
     setErrorMessage("");
   }
 
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(54,164,255,0.16),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(43,214,153,0.16),_transparent_22%),linear-gradient(180deg,_#edf5ff_0%,_#e8eff8_44%,_#dde7f4_100%)] px-4 py-10 dark:bg-[radial-gradient(circle_at_top_left,_rgba(54,164,255,0.14),_transparent_20%),radial-gradient(circle_at_top_right,_rgba(43,214,153,0.14),_transparent_18%),linear-gradient(180deg,_#081221_0%,_#0e1728_42%,_#111827_100%)]">
+        <div className="mx-auto flex max-w-4xl items-center justify-center rounded-[28px] border border-white/70 bg-white/82 px-6 py-14 text-lg font-semibold text-slate-700 shadow-board backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/82 dark:text-slate-200">
+          Loading your account...
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <AuthScreen
+        errorMessage={errorMessage}
+        isLoading={isAuthSubmitting}
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(54,164,255,0.16),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(43,214,153,0.16),_transparent_22%),linear-gradient(180deg,_#edf5ff_0%,_#e8eff8_44%,_#dde7f4_100%)] px-4 py-5 text-slate-900 dark:bg-[radial-gradient(circle_at_top_left,_rgba(54,164,255,0.14),_transparent_20%),radial-gradient(circle_at_top_right,_rgba(43,214,153,0.14),_transparent_18%),linear-gradient(180deg,_#081221_0%,_#0e1728_42%,_#111827_100%)] dark:text-slate-50 sm:px-5 lg:px-6">
       <div className="mx-auto flex max-w-[1800px] flex-col gap-5">
         <HeaderBar
+          currentUser={currentUser}
           searchValue={searchValue}
           priorityFilter={priorityFilter}
           taskCount={countTasks(taskGroups)}
           darkMode={darkMode}
           dueReminderEnabled={dueReminderEnabled}
+          onSignOut={handleSignOut}
           onPriorityFilterChange={setPriorityFilter}
           onSearchChange={setSearchValue}
           onToggleDarkMode={() => setDarkMode((currentValue) => !currentValue)}

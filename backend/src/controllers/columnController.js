@@ -18,7 +18,7 @@ function validateAccent(accent) {
 
 async function listColumns(_request, response, next) {
   try {
-    const columns = await Column.find({}).sort({ position: 1, createdAt: 1 });
+    const columns = await Column.find({ ownerId: _request.user._id }).sort({ position: 1, createdAt: 1 });
     response.json(columns);
   } catch (error) {
     next(error);
@@ -37,11 +37,12 @@ async function createColumn(request, response, next) {
       return response.status(400).json({ message: "Column accent is invalid." });
     }
 
-    const lastColumn = await Column.findOne({}).sort({ position: -1, createdAt: -1 });
+    const lastColumn = await Column.findOne({ ownerId: request.user._id }).sort({ position: -1, createdAt: -1 });
     const column = await Column.create({
       ...columnData,
       isDefault: false,
-      position: lastColumn ? lastColumn.position + POSITION_GAP : POSITION_GAP
+      position: lastColumn ? lastColumn.position + POSITION_GAP : POSITION_GAP,
+      ownerId: request.user._id
     });
 
     response.status(201).json(column);
@@ -53,7 +54,7 @@ async function createColumn(request, response, next) {
 async function updateColumn(request, response, next) {
   try {
     const { id } = request.params;
-    const column = await Column.findById(id);
+    const column = await Column.findOne({ _id: id, ownerId: request.user._id });
 
     if (!column) {
       return response.status(404).json({ message: "Column not found." });
@@ -83,7 +84,7 @@ async function updateColumn(request, response, next) {
 async function deleteColumn(request, response, next) {
   try {
     const { id } = request.params;
-    const column = await Column.findById(id);
+    const column = await Column.findOne({ _id: id, ownerId: request.user._id });
 
     if (!column) {
       return response.status(404).json({ message: "Column not found." });
@@ -93,19 +94,19 @@ async function deleteColumn(request, response, next) {
       return response.status(400).json({ message: "Default columns cannot be deleted." });
     }
 
-    const totalColumns = await Column.countDocuments();
+    const totalColumns = await Column.countDocuments({ ownerId: request.user._id });
 
     if (totalColumns <= 1) {
       return response.status(400).json({ message: "Keep at least one column on the board." });
     }
 
-    const taskCount = await Task.countDocuments({ columnId: id });
+    const taskCount = await Task.countDocuments({ columnId: id, ownerId: request.user._id });
 
     if (taskCount > 0) {
       return response.status(400).json({ message: "Move or delete the tasks in this column first." });
     }
 
-    await Column.findByIdAndDelete(id);
+    await Column.findOneAndDelete({ _id: id, ownerId: request.user._id });
 
     response.status(204).send();
   } catch (error) {

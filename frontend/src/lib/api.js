@@ -1,12 +1,34 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+const TOKEN_STORAGE_KEY = "flowboard-auth-token";
+
+function getStoredToken() {
+  return localStorage.getItem(TOKEN_STORAGE_KEY) || "";
+}
+
+export function saveAuthToken(token) {
+  if (token) {
+    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+  }
+}
+
+export function clearAuthToken() {
+  localStorage.removeItem(TOKEN_STORAGE_KEY);
+}
+
+export function hasAuthToken() {
+  return Boolean(getStoredToken());
+}
 
 async function request(path, options = {}) {
   let response;
 
   try {
+    const token = getStoredToken();
+
     response = await fetch(`${API_BASE_URL}${path}`, {
       headers: {
         "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.headers || {})
       },
       ...options
@@ -24,10 +46,30 @@ async function request(path, options = {}) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data.message || "Request failed.");
+    const error = new Error(data.message || "Request failed.");
+    error.status = response.status;
+    throw error;
   }
 
   return data;
+}
+
+export function registerUser(payload) {
+  return request("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function loginUser(payload) {
+  return request("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function fetchCurrentUser() {
+  return request("/auth/me");
 }
 
 export function fetchTasks() {

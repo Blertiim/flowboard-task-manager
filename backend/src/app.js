@@ -1,8 +1,11 @@
 const cors = require("cors");
+const authRoutes = require("./routes/authRoutes");
 const boardRoutes = require("./routes/boardRoutes");
 const express = require("express");
 const morgan = require("morgan");
 const columnRoutes = require("./routes/columnRoutes");
+const { ensureUserBoard } = require("./middleware/ensureUserBoard");
+const { requireAuth } = require("./middleware/requireAuth");
 const taskRoutes = require("./routes/taskRoutes");
 
 const app = express();
@@ -30,9 +33,10 @@ app.get("/api/health", (_request, response) => {
   response.json({ ok: true, timestamp: new Date().toISOString() });
 });
 
-app.use("/api/board", boardRoutes);
-app.use("/api/columns", columnRoutes);
-app.use("/api/tasks", taskRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/board", requireAuth, ensureUserBoard, boardRoutes);
+app.use("/api/columns", requireAuth, ensureUserBoard, columnRoutes);
+app.use("/api/tasks", requireAuth, ensureUserBoard, taskRoutes);
 
 app.use((error, _request, response, _next) => {
   if (error.name === "ValidationError") {

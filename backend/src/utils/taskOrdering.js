@@ -3,17 +3,17 @@ const Task = require("../models/Task");
 const POSITION_GAP = 1024;
 const MIN_GAP = 0.0001;
 
-async function getColumnTasks(columnId) {
-  return Task.find({ columnId }).sort({ position: 1, createdAt: 1 });
+async function getColumnTasks(columnId, ownerId) {
+  return Task.find({ columnId, ownerId }).sort({ position: 1, createdAt: 1 });
 }
 
-async function getColumnTasksExcluding(columnId, excludedTaskId) {
-  const tasks = await getColumnTasks(columnId);
+async function getColumnTasksExcluding(columnId, excludedTaskId, ownerId) {
+  const tasks = await getColumnTasks(columnId, ownerId);
   return tasks.filter((task) => String(task._id) !== String(excludedTaskId));
 }
 
-async function getTopPosition(columnId) {
-  const firstTask = await Task.findOne({ columnId }).sort({ position: 1, createdAt: 1 });
+async function getTopPosition(columnId, ownerId) {
+  const firstTask = await Task.findOne({ columnId, ownerId }).sort({ position: 1, createdAt: 1 });
 
   if (!firstTask) {
     return POSITION_GAP;
@@ -38,8 +38,8 @@ function getPositionForIndex(tasks, index) {
   return (tasks[index - 1].position + tasks[index].position) / 2;
 }
 
-async function normalizeColumn(columnId) {
-  const tasks = await getColumnTasks(columnId);
+async function normalizeColumn(columnId, ownerId) {
+  const tasks = await getColumnTasks(columnId, ownerId);
 
   if (tasks.length === 0) {
     return;
@@ -55,20 +55,20 @@ async function normalizeColumn(columnId) {
   await Task.bulkWrite(operations);
 }
 
-async function ensurePositionGap(columnId, index, excludedTaskId) {
+async function ensurePositionGap(columnId, index, excludedTaskId, ownerId) {
   const tasks = excludedTaskId
-    ? await getColumnTasksExcluding(columnId, excludedTaskId)
-    : await getColumnTasks(columnId);
+    ? await getColumnTasksExcluding(columnId, excludedTaskId, ownerId)
+    : await getColumnTasks(columnId, ownerId);
   let nextPosition = getPositionForIndex(tasks, index);
 
   if (index > 0 && index < tasks.length) {
     const gap = Math.abs(tasks[index].position - tasks[index - 1].position);
 
     if (gap < MIN_GAP) {
-      await normalizeColumn(columnId);
+      await normalizeColumn(columnId, ownerId);
       const normalizedTasks = excludedTaskId
-        ? await getColumnTasksExcluding(columnId, excludedTaskId)
-        : await getColumnTasks(columnId);
+        ? await getColumnTasksExcluding(columnId, excludedTaskId, ownerId)
+        : await getColumnTasks(columnId, ownerId);
       nextPosition = getPositionForIndex(normalizedTasks, index);
     }
   }
