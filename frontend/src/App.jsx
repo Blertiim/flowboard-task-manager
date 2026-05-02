@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DragDropContext } from "@hello-pangea/dnd";
 import AddColumnCard from "./components/AddColumnCard";
 import AuthScreen from "./components/AuthScreen";
@@ -230,6 +230,13 @@ export default function App() {
   const [dueReminderEnabled, setDueReminderEnabled] = useState(
     () => localStorage.getItem("flowboard-due-reminders") === "enabled"
   );
+  const skipNextBoardLoadRef = useRef(false);
+
+  function applyBoardState(boardPayload) {
+    const nextState = buildBoardState(boardPayload);
+    setColumns(nextState.columns);
+    setTaskGroups(nextState.taskGroups);
+  }
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -253,10 +260,13 @@ export default function App() {
       }
 
       try {
-        const { user } = await fetchCurrentUser();
+        const { user, board } = await fetchCurrentUser();
 
         if (!cancelled) {
           setCurrentUser(user);
+          applyBoardState(board);
+          setIsLoading(false);
+          skipNextBoardLoadRef.current = true;
           setErrorMessage("");
         }
       } catch (_error) {
@@ -292,6 +302,14 @@ export default function App() {
         return;
       }
 
+      if (skipNextBoardLoadRef.current) {
+        skipNextBoardLoadRef.current = false;
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+        return;
+      }
+
       try {
         setIsLoading(true);
         setErrorMessage("");
@@ -299,9 +317,7 @@ export default function App() {
         const board = await fetchBoard();
 
         if (!cancelled) {
-          const nextState = buildBoardState(board);
-          setColumns(nextState.columns);
-          setTaskGroups(nextState.taskGroups);
+          applyBoardState(board);
         }
       } catch (error) {
         if (!cancelled) {
@@ -414,6 +430,9 @@ export default function App() {
       setErrorMessage("");
       const response = await loginUser(payload);
       saveAuthToken(response.token);
+      applyBoardState(response.board);
+      setIsLoading(false);
+      skipNextBoardLoadRef.current = true;
       setCurrentUser(response.user);
     } catch (error) {
       setErrorMessage(error.message);
@@ -428,6 +447,9 @@ export default function App() {
       setErrorMessage("");
       const response = await registerUser(payload);
       saveAuthToken(response.token);
+      applyBoardState(response.board);
+      setIsLoading(false);
+      skipNextBoardLoadRef.current = true;
       setCurrentUser(response.user);
     } catch (error) {
       setErrorMessage(error.message);

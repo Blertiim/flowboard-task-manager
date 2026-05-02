@@ -1,4 +1,5 @@
 const bcrypt = require("bcryptjs");
+const { buildBoardPayload } = require("./boardController");
 const User = require("../models/User");
 const { ensureUserBoardSetup } = require("../utils/boardSetup");
 const { signUserToken } = require("../utils/auth");
@@ -60,7 +61,8 @@ async function register(request, response, next) {
 
     response.status(201).json({
       token: signUserToken(user),
-      user: serializeUser(user)
+      user: serializeUser(user),
+      board: await buildBoardPayload(user._id)
     });
   } catch (error) {
     next(error);
@@ -91,17 +93,24 @@ async function login(request, response, next) {
 
     response.json({
       token: signUserToken(user),
-      user: serializeUser(user)
+      user: serializeUser(user),
+      board: await buildBoardPayload(user._id)
     });
   } catch (error) {
     next(error);
   }
 }
 
-async function getCurrentUser(request, response) {
-  response.json({
-    user: serializeUser(request.user)
-  });
+async function getCurrentUser(request, response, next) {
+  try {
+    await ensureUserBoardSetup(request.user._id);
+    response.json({
+      user: serializeUser(request.user),
+      board: await buildBoardPayload(request.user._id)
+    });
+  } catch (error) {
+    next(error);
+  }
 }
 
 module.exports = {

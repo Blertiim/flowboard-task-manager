@@ -4,7 +4,6 @@ const boardRoutes = require("./routes/boardRoutes");
 const express = require("express");
 const morgan = require("morgan");
 const columnRoutes = require("./routes/columnRoutes");
-const { ensureUserBoard } = require("./middleware/ensureUserBoard");
 const { requireAuth } = require("./middleware/requireAuth");
 const taskRoutes = require("./routes/taskRoutes");
 
@@ -34,9 +33,9 @@ app.get("/api/health", (_request, response) => {
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/board", requireAuth, ensureUserBoard, boardRoutes);
-app.use("/api/columns", requireAuth, ensureUserBoard, columnRoutes);
-app.use("/api/tasks", requireAuth, ensureUserBoard, taskRoutes);
+app.use("/api/board", requireAuth, boardRoutes);
+app.use("/api/columns", requireAuth, columnRoutes);
+app.use("/api/tasks", requireAuth, taskRoutes);
 
 app.use((error, _request, response, _next) => {
   if (error.name === "ValidationError") {

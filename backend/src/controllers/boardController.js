@@ -38,34 +38,39 @@ function serializeColumn(column, tasks) {
   };
 }
 
+async function buildBoardPayload(ownerId) {
+  const [columns, tasks] = await Promise.all([
+    Column.find({ ownerId }).sort({ position: 1, createdAt: 1 }),
+    Task.find({ ownerId }).sort({ position: 1, createdAt: 1 })
+  ]);
+
+  const groupedTasks = tasks.reduce((accumulator, task) => {
+    const key = String(task.columnId);
+
+    if (!accumulator[key]) {
+      accumulator[key] = [];
+    }
+
+    accumulator[key].push(serializeTask(task));
+    return accumulator;
+  }, {});
+
+  return {
+    columns: columns.map((column) =>
+      serializeColumn(column, groupedTasks[String(column._id)] || [])
+    )
+  };
+}
+
 async function getBoard(request, response, next) {
   try {
-    const [columns, tasks] = await Promise.all([
-      Column.find({ ownerId: request.user._id }).sort({ position: 1, createdAt: 1 }),
-      Task.find({ ownerId: request.user._id }).sort({ position: 1, createdAt: 1 })
-    ]);
-
-    const groupedTasks = tasks.reduce((accumulator, task) => {
-      const key = String(task.columnId);
-
-      if (!accumulator[key]) {
-        accumulator[key] = [];
-      }
-
-      accumulator[key].push(serializeTask(task));
-      return accumulator;
-    }, {});
-
-    response.json({
-      columns: columns.map((column) =>
-        serializeColumn(column, groupedTasks[String(column._id)] || [])
-      )
-    });
+    response.json(await buildBoardPayload(request.user._id));
   } catch (error) {
     next(error);
   }
 }
 
 module.exports = {
+  buildBoardPayload,
   getBoard
 };
