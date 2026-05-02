@@ -118,9 +118,7 @@ export default function TaskModal({
   const selectedType = getTaskTypeStyle(form.type);
   const comments = Array.isArray(form.comments) ? form.comments : [];
 
-  async function handleCommentSubmit(event) {
-    event.preventDefault();
-
+  async function handleCommentSubmit() {
     if (!commentDraft.trim()) {
       setCommentError("Comment cannot be empty.");
       return;
@@ -239,7 +237,7 @@ export default function TaskModal({
                     <section className="space-y-4">
                       <SectionLabel>Comments</SectionLabel>
 
-                      <form className="space-y-3" onSubmit={handleCommentSubmit}>
+                      <div className="space-y-3">
                         <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/50">
                           <div className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
                             {currentUser ? `Comment as ${currentUser.name}` : "Add comment"}
@@ -256,7 +254,8 @@ export default function TaskModal({
                           ) : null}
                           <div className="mt-3 flex justify-end">
                             <button
-                              type="submit"
+                              type="button"
+                              onClick={handleCommentSubmit}
                               disabled={isSaving}
                               className="rounded-md bg-[#0C66E4] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0055CC] disabled:cursor-not-allowed disabled:opacity-60"
                             >
@@ -264,7 +263,7 @@ export default function TaskModal({
                             </button>
                           </div>
                         </div>
-                      </form>
+                      </div>
 
                       <div className="space-y-3">
                         {comments.length ? (
