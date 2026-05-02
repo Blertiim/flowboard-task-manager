@@ -15,6 +15,17 @@ function serializeTask(task) {
     dueDate: task.dueDate,
     columnId: String(task.columnId),
     position: task.position,
+    comments: Array.isArray(task.comments)
+      ? task.comments.map((comment) => ({
+          id: String(comment._id),
+          _id: String(comment._id),
+          authorId: String(comment.authorId),
+          authorName: comment.authorName,
+          body: comment.body,
+          createdAt: comment.createdAt,
+          updatedAt: comment.updatedAt
+        }))
+      : [],
     createdAt: task.createdAt,
     updatedAt: task.updatedAt
   };

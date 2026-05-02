@@ -105,6 +105,13 @@ export function moveTask(taskId, payload) {
   });
 }
 
+export function addTaskComment(taskId, payload) {
+  return request(`/tasks/${taskId}/comments`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
 export function deleteTask(taskId) {
   return request(`/tasks/${taskId}`, {
     method: "DELETE"

@@ -1,5 +1,6 @@
 import { getPriorityStyle, PRIORITY_OPTIONS } from "../lib/priorityStyles";
 import { getTaskTypeStyle, TASK_TYPE_OPTIONS } from "../lib/taskTypeStyles";
+import { useEffect, useState } from "react";
 
 function toDateTimeLocalValue(dateValue) {
   if (!dateValue) {
@@ -87,15 +88,27 @@ function IconType() {
 
 export default function TaskModal({
   columns,
+  currentUser,
   form,
   isOpen,
   isSaving,
   isEditing,
   onChange,
+  onAddComment,
   onClose,
   onDelete,
   onSubmit
 }) {
+  const [commentDraft, setCommentDraft] = useState("");
+  const [commentError, setCommentError] = useState("");
+
+  useEffect(() => {
+    if (isOpen) {
+      setCommentDraft("");
+      setCommentError("");
+    }
+  }, [isOpen, form._id]);
+
   if (!isOpen) {
     return null;
   }
@@ -103,6 +116,24 @@ export default function TaskModal({
   const titleError = !form.title.trim() ? "A summary is required." : "";
   const selectedPriority = getPriorityStyle(form.priority);
   const selectedType = getTaskTypeStyle(form.type);
+  const comments = Array.isArray(form.comments) ? form.comments : [];
+
+  async function handleCommentSubmit(event) {
+    event.preventDefault();
+
+    if (!commentDraft.trim()) {
+      setCommentError("Comment cannot be empty.");
+      return;
+    }
+
+    try {
+      setCommentError("");
+      await onAddComment(commentDraft.trim());
+      setCommentDraft("");
+    } catch (_error) {
+      setCommentError("Could not save comment.");
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/24 p-4 backdrop-blur-[1px] sm:items-center">
@@ -200,6 +231,76 @@ export default function TaskModal({
                     </label>
                   </div>
                 </section>
+
+                {isEditing ? (
+                  <>
+                    <div className="border-t border-slate-200" />
+
+                    <section className="space-y-4">
+                      <SectionLabel>Comments</SectionLabel>
+
+                      <form className="space-y-3" onSubmit={handleCommentSubmit}>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/50">
+                          <div className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                            {currentUser ? `Comment as ${currentUser.name}` : "Add comment"}
+                          </div>
+                          <textarea
+                            rows="3"
+                            value={commentDraft}
+                            onChange={(event) => setCommentDraft(event.target.value)}
+                            placeholder="Leave a comment about what was done, blocked, or verified..."
+                            className="w-full rounded-md border border-slate-300 bg-white px-3 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#0C66E4] focus:ring-2 focus:ring-[#85B8FF]"
+                          />
+                          {commentError ? (
+                            <div className="mt-2 text-sm font-medium text-rose-600">{commentError}</div>
+                          ) : null}
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              type="submit"
+                              disabled={isSaving}
+                              className="rounded-md bg-[#0C66E4] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0055CC] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {isSaving ? "Saving..." : "Add comment"}
+                            </button>
+                          </div>
+                        </div>
+                      </form>
+
+                      <div className="space-y-3">
+                        {comments.length ? (
+                          comments
+                            .slice()
+                            .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt))
+                            .map((comment) => (
+                              <article
+                                key={comment._id || comment.id}
+                                className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-950/50"
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                    {comment.authorName}
+                                  </div>
+                                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                                    {new Intl.DateTimeFormat(undefined, {
+                                      dateStyle: "medium",
+                                      timeStyle: "short"
+                                    }).format(new Date(comment.createdAt))}
+                                  </div>
+                                </div>
+                                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-300">
+                                  {comment.body}
+                                </p>
+                              </article>
+                            ))
+                        ) : (
+                          <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-4 py-5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-400">
+                            No comments yet. Add one when you finish or update this task.
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  </>
+                ) : null}
               </div>
             </div>
 

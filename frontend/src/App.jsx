@@ -6,6 +6,7 @@ import BoardColumn from "./components/BoardColumn";
 import HeaderBar from "./components/HeaderBar";
 import TaskModal from "./components/TaskModal";
 import {
+  addTaskComment,
   clearAuthToken,
   createColumn,
   createTask,
@@ -30,7 +31,8 @@ const DEFAULT_TASK_FORM = {
   priority: "important",
   type: "task",
   columnId: "",
-  createdAt: ""
+  createdAt: "",
+  comments: []
 };
 
 function normalizeInputValue(value) {
@@ -68,7 +70,14 @@ function normalizeTask(task) {
     columnId: String(task.columnId),
     position: typeof task.position === "number" ? task.position : 1024,
     createdAt: task.createdAt || "",
-    updatedAt: task.updatedAt || ""
+    updatedAt: task.updatedAt || "",
+    comments: Array.isArray(task.comments)
+      ? task.comments.map((comment) => ({
+          ...comment,
+          _id: String(comment._id || comment.id),
+          id: String(comment._id || comment.id)
+        }))
+      : []
   };
 }
 
@@ -153,7 +162,8 @@ function buildTaskForm(task, fallbackColumnId = "") {
     priority: normalizeInputValue(task.priority) || "important",
     type: normalizeInputValue(task.type) || "task",
     columnId: String(task.columnId || fallbackColumnId),
-    createdAt: task.createdAt || ""
+    createdAt: task.createdAt || "",
+    comments: Array.isArray(task.comments) ? task.comments : []
   };
 }
 
@@ -504,6 +514,26 @@ export default function App() {
     }
   }
 
+  async function handleAddComment(commentBody) {
+    if (!editingTask) {
+      return;
+    }
+
+    try {
+      setIsSavingTask(true);
+      setErrorMessage("");
+      const updatedTask = normalizeTask(await addTaskComment(editingTask._id, { body: commentBody }));
+      setTaskGroups((currentGroups) => replaceTask(currentGroups, updatedTask, columns));
+      setEditingTask(updatedTask);
+      setTaskForm(buildTaskForm(updatedTask, columns[0]?._id || ""));
+    } catch (error) {
+      setErrorMessage(error.message);
+      throw error;
+    } finally {
+      setIsSavingTask(false);
+    }
+  }
+
   async function handleCreateColumn(payload) {
     setErrorMessage("");
     const created = normalizeColumn(await createColumn(payload));
@@ -722,7 +752,9 @@ export default function App() {
         isOpen={isTaskModalOpen}
         isSaving={isSavingTask}
         isEditing={Boolean(editingTask)}
+        currentUser={currentUser}
         onChange={updateTaskForm}
+        onAddComment={handleAddComment}
         onClose={closeTaskModal}
         onDelete={handleTaskDelete}
         onSubmit={handleTaskSubmit}

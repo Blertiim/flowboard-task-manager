@@ -1,5 +1,30 @@
 const mongoose = require("mongoose");
 
+const commentSchema = new mongoose.Schema(
+  {
+    authorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
+    },
+    authorName: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: [80, "Author name must be 80 characters or fewer."]
+    },
+    body: {
+      type: String,
+      required: [true, "Comment body is required."],
+      trim: true,
+      maxlength: [1200, "Comment must be 1200 characters or fewer."]
+    }
+  },
+  {
+    timestamps: true
+  }
+);
+
 const taskSchema = new mongoose.Schema(
   {
     title: {
@@ -52,6 +77,10 @@ const taskSchema = new mongoose.Schema(
       type: Number,
       required: true,
       default: 1024
+    },
+    comments: {
+      type: [commentSchema],
+      default: []
     }
   },
   {

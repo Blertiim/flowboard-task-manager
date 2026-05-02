@@ -48,6 +48,12 @@ function validateTaskType(type) {
   return ["task", "bug", "feature"].includes(type);
 }
 
+function normalizeCommentInput(payload = {}) {
+  return {
+    body: typeof payload.body === "string" ? payload.body.trim() : ""
+  };
+}
+
 async function getColumnOrNull(columnId) {
   if (!validateColumnId(columnId)) {
     return null;
@@ -248,7 +254,36 @@ async function deleteTask(request, response, next) {
   }
 }
 
+async function addTaskComment(request, response, next) {
+  try {
+    const { id } = request.params;
+    const task = await Task.findOne({ _id: id, ownerId: request.user._id });
+
+    if (!task) {
+      return response.status(404).json({ message: "Task not found." });
+    }
+
+    const commentInput = normalizeCommentInput(request.body);
+
+    if (!commentInput.body) {
+      return response.status(400).json({ message: "Comment cannot be empty." });
+    }
+
+    task.comments.push({
+      authorId: request.user._id,
+      authorName: request.user.name,
+      body: commentInput.body
+    });
+
+    await task.save();
+    response.status(201).json(task);
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
+  addTaskComment,
   createTask,
   deleteTask,
   listTasks,
